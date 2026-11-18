@@ -1,0 +1,1162 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="robots" content="noindex,nofollow">
+<meta name="theme-color" content="#F3F5F7" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#101316" media="(prefers-color-scheme: dark)">
+<title>Class Recording Log</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Ccircle cx='8' cy='8' r='6' fill='%23D3263A'/%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<style>
+/* Layout: one narrow column, phone first. "Today" on top (what needs logging now), the full log below.
+   Red is only ever "recorded" (Zoom's REC dot); amber is "not recorded". */
+:root {
+  --bg: #F3F5F7;
+  --surface: #FFFFFF;
+  --ink: #15191E;
+  --muted: #59636E;
+  --faint: #8C959F;
+  --line: #DCE1E6;
+  --rec: #D3263A;
+  --miss: #A35400;
+  --miss-soft: #FBEEDD;
+  --focus: #2C6BED;
+  --p0: #D3263A;
+  --p1: #1F6FB2;
+  --p2: #2E7D4F;
+  --p3: #7A4FB5;
+  --pin-ink: #FFFFFF;
+  --sans: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --mono: "IBM Plex Mono", ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #101316;
+    --surface: #181C20;
+    --ink: #E8EBEE;
+    --muted: #A2ABB5;
+    --faint: #6F7882;
+    --line: #2A3036;
+    --rec: #FF5566;
+    --miss: #F0A458;
+    --miss-soft: #33261A;
+    --focus: #7AA5FF;
+    --p0: #FF5566;
+    --p1: #5AA6F0;
+    --p2: #54C08A;
+    --p3: #B58CF0;
+    --pin-ink: #101316;
+    color-scheme: dark;
+  }
+}
+* { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; }
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--ink);
+  font: 400 16px/1.5 var(--sans);
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+[hidden] { display: none !important; }
+button, input, select, textarea { font: inherit; color: inherit; }
+:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+.mono { font-family: var(--mono); font-variant-numeric: tabular-nums; }
+
+.wrap {
+  max-width: 40rem;
+  margin: 0 auto;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+}
+
+/* Header */
+.top { border-bottom: 1px solid var(--line); padding-top: env(safe-area-inset-top, 0px); }
+.top .wrap { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding-block: 14px; }
+.brand { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.rec-tag {
+  display: inline-flex; align-items: center; gap: 6px;
+  font: 600 12px/1 var(--mono); letter-spacing: .08em; color: var(--rec);
+  border: 1.5px solid var(--rec); border-radius: 4px; padding: 4px 6px 4px 5px;
+}
+.rec-tag::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: var(--rec); }
+.brand h1 { margin: 0; font-size: 17px; font-weight: 600; letter-spacing: -.01em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.sem { font: 500 13px/1.2 var(--mono); color: var(--muted); white-space: nowrap; }
+
+main { padding-block: 8px 48px; }
+section.block { padding-top: 24px; }
+.sec-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; margin-bottom: 8px; }
+.sec-head h2 { margin: 0; font-size: 13px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+.sec-head .aside { font-size: 13px; color: var(--muted); }
+
+/* Buttons */
+.btn {
+  appearance: none; border: 1px solid var(--line); background: var(--surface);
+  border-radius: 8px; padding: 9px 14px; font-weight: 500; cursor: pointer;
+  display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 42px;
+}
+.btn:hover { border-color: var(--faint); }
+.btn.primary { background: var(--ink); color: var(--bg); border-color: var(--ink); }
+.btn.primary .dot { width: 9px; height: 9px; border-radius: 50%; background: var(--rec); }
+.btn.danger { color: var(--rec); }
+.btn.danger.armed { background: var(--rec); color: #fff; border-color: var(--rec); }
+.btn[disabled] { opacity: .6; cursor: default; }
+.linkbtn { appearance: none; border: 0; background: none; padding: 0; color: var(--ink); text-decoration: underline; text-underline-offset: 3px; cursor: pointer; font-size: inherit; }
+
+/* Status marks */
+.mark { width: 12px; height: 12px; border-radius: 50%; flex: none; margin-top: 6px; }
+.mark.recorded { background: var(--rec); }
+.mark.missed { border: 2.5px solid var(--miss); }
+.mark.open { border: 1.5px dashed var(--faint); }
+/* One colour per person (in the order of the Settings tab). */
+.mark.recorded.p1 { background: var(--p1); }
+.mark.recorded.p2 { background: var(--p2); }
+.mark.recorded.p3 { background: var(--p3); }
+
+/* Device banner */
+.who-banner {
+  margin-top: 16px; padding: 14px; border: 1px solid var(--line); border-radius: 10px; background: var(--surface);
+  display: grid; gap: 10px;
+}
+.who-banner p { margin: 0; }
+.who-banner .row { display: flex; flex-wrap: wrap; gap: 8px; }
+
+/* Today */
+.rows { list-style: none; margin: 0; padding: 0; border-top: 1px solid var(--line); }
+.rows > li { border-bottom: 1px solid var(--line); }
+.today-row {
+  width: 100%; text-align: left; appearance: none; border: 0; background: none; cursor: pointer;
+  display: grid; grid-template-columns: 3.4rem 12px minmax(0, 1fr) auto; gap: 12px; align-items: start;
+  padding: 12px 4px;
+}
+.today-row:hover { background: color-mix(in srgb, var(--surface) 70%, transparent); }
+.today-row .time { font: 500 14px/1.5 var(--mono); color: var(--muted); padding-top: 2px; }
+.course-line { display: flex; flex-wrap: wrap; column-gap: 8px; align-items: baseline; }
+.code { font: 600 14px/1.4 var(--mono); letter-spacing: .02em; }
+.cname { color: var(--muted); font-size: 14px; }
+.state { font-size: 14px; margin-top: 2px; }
+.state.recorded { color: var(--ink); }
+.state.missed { color: var(--miss); font-weight: 500; }
+.state.due { color: var(--miss); font-weight: 500; }
+.state.later { color: var(--faint); }
+.go { font-size: 13px; font-weight: 600; color: var(--ink); padding: 4px 0 0; white-space: nowrap; }
+.go.quiet { color: var(--faint); font-weight: 400; }
+.empty { color: var(--muted); padding: 14px 4px; margin: 0; border-bottom: 1px solid var(--line); }
+.add-row { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin-top: 14px; }
+.add-row .hint { font-size: 13px; color: var(--muted); }
+
+/* Log */
+.filters { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 12px; }
+.filters select { flex: 1 1 10rem; min-width: 0; }
+.who-tally { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 12px; }
+.tally-btn {
+  appearance: none; display: inline-flex; align-items: center; gap: 8px; min-height: 38px; padding: 6px 14px;
+  border: 1px solid var(--line); border-radius: 999px; background: var(--surface); cursor: pointer; font-size: 15px;
+}
+.tally-btn .mark { margin-top: 0; width: 10px; height: 10px; }
+.tally-btn .count { font-weight: 600; }
+.tally-btn[aria-pressed="true"] { border-color: var(--ink); box-shadow: inset 0 0 0 1px var(--ink); }
+.tally-btn.zero { color: var(--faint); }
+select, input[type=text], input[type=url], input[type=date], input[type=password], textarea {
+  width: 100%; border: 1px solid var(--line); background: var(--surface); border-radius: 8px;
+  padding: 9px 11px; min-height: 42px;
+}
+select { padding-right: 28px; }
+.day-head {
+  font: 600 12px/1 var(--mono); letter-spacing: .08em; text-transform: uppercase; color: var(--muted);
+  padding: 18px 4px 8px; display: flex; justify-content: space-between; gap: 8px;
+}
+.day-head:first-child { padding-top: 4px; }
+.log-row {
+  width: 100%; text-align: left; appearance: none; border: 0; background: none; cursor: pointer;
+  display: grid; grid-template-columns: 12px minmax(0, 1fr); gap: 12px; padding: 12px 4px;
+}
+.log-row:hover { background: color-mix(in srgb, var(--surface) 70%, transparent); }
+.log-title { font-weight: 500; overflow-wrap: anywhere; }
+.log-title.untitled { color: var(--faint); font-weight: 400; font-style: italic; }
+.log-sub { font-size: 14px; color: var(--muted); display: flex; flex-wrap: wrap; column-gap: 10px; }
+.log-sub .missed { color: var(--miss); font-weight: 500; }
+.log-sub a { color: var(--ink); text-underline-offset: 3px; }
+.log-note { font-size: 14px; color: var(--muted); margin-top: 2px; overflow-wrap: anywhere; }
+
+/* List / Month switch */
+.view-switch { display: inline-flex; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; flex: none; }
+.view-switch button {
+  appearance: none; border: 0; background: var(--surface); color: var(--muted); cursor: pointer;
+  padding: 6px 14px; min-height: 34px; font-size: 14px; font-weight: 500;
+}
+.view-switch button + button { border-left: 1px solid var(--line); }
+.view-switch button[aria-pressed="true"] { background: var(--ink); color: var(--bg); }
+
+/* Month view */
+.month-nav { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; }
+.month-nav h3 { margin: 0; flex: 1; font-size: 18px; font-weight: 600; letter-spacing: -.01em; }
+.icon-btn {
+  appearance: none; width: 42px; height: 42px; flex: none; border: 1px solid var(--line); border-radius: 8px;
+  background: var(--surface); cursor: pointer; font-size: 20px; line-height: 1;
+}
+.month-sum, .legend { display: flex; flex-wrap: wrap; gap: 4px 14px; margin: 0 0 10px; }
+.month-sum { font-size: 15px; font-weight: 500; }
+.legend { font-size: 13px; color: var(--muted); }
+.it { display: inline-flex; align-items: center; gap: 6px; }
+.pin {
+  width: 18px; height: 18px; border-radius: 50%; flex: none; display: inline-flex; align-items: center; justify-content: center;
+  font: 600 10px/1 var(--mono); color: var(--pin-ink); background: var(--p0);
+}
+.pin.p1 { background: var(--p1); }
+.pin.p2 { background: var(--p2); }
+.pin.p3 { background: var(--p3); }
+.pin.missed { background: none; border: 2px solid var(--miss); }
+.pin.notlogged { background: none; border: 1.5px dashed var(--miss); }
+.pin.upcoming { background: none; border: 1.5px dotted var(--faint); }
+.pin.sm { width: 11px; height: 11px; }
+.cal { border-top: 1px solid var(--line); border-left: 1px solid var(--line); }
+.cal-dow, .cal-week { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); }
+.cal-dow span {
+  font: 600 11px/1 var(--mono); letter-spacing: .06em; text-transform: uppercase; color: var(--muted);
+  padding: 8px 6px; border-right: 1px solid var(--line); border-bottom: 1px solid var(--line);
+}
+.cal-day {
+  appearance: none; border: 0; border-right: 1px solid var(--line); border-bottom: 1px solid var(--line);
+  background: var(--surface); text-align: left; padding: 6px; min-height: 92px; min-width: 0; cursor: pointer;
+  display: flex; flex-direction: column; gap: 5px;
+}
+.cal-day.out { background: transparent; }
+.cal-day .dnum { font: 500 12px/1 var(--mono); color: var(--muted); align-self: flex-start; padding: 3px 4px; border-radius: 4px; }
+.cal-day.out .dnum { color: var(--faint); }
+.cal-day.today .dnum { background: var(--ink); color: var(--bg); }
+.cal-day.sel { box-shadow: inset 0 0 0 2px var(--ink); }
+.evs { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.ev { display: flex; align-items: center; gap: 5px; min-width: 0; }
+.ev-code { font: 500 11px/1.2 var(--mono); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+.ev.upcoming .ev-code { color: var(--faint); }
+.week-sum {
+  border-right: 1px solid var(--line); border-bottom: 1px solid var(--line); background: var(--bg);
+  padding: 6px 8px; font-size: 13px; color: var(--muted); display: flex; flex-wrap: wrap; gap: 2px 12px;
+}
+.week-sum .wk { font: 500 12px/1.6 var(--mono); color: var(--ink); }
+.day-detail { margin-top: 20px; }
+.day-detail h3 { margin: 0 0 8px; font-size: 16px; }
+.hint-line { color: var(--muted); font-size: 14px; margin: 14px 0 0; }
+@media (max-width: 560px) {
+  .cal-day { min-height: 62px; padding: 4px; }
+  .evs { flex-direction: row; flex-wrap: wrap; }
+  .ev-code { display: none; }
+  .pin { width: 16px; height: 16px; font-size: 9px; }
+  .pin.sm { width: 11px; height: 11px; }
+  .cal-dow span { padding: 6px 4px; font-size: 10px; letter-spacing: .02em; }
+}
+
+.foot { margin-top: 32px; font-size: 13px; color: var(--muted); display: flex; flex-wrap: wrap; gap: 6px 16px; }
+.foot .err { color: var(--miss); }
+
+/* Passcode gate */
+.gate { max-width: 24rem; margin: 12vh auto 0; display: grid; gap: 12px; }
+.gate h2 { margin: 0; font-size: 22px; letter-spacing: -.01em; }
+.gate p { margin: 0; color: var(--muted); }
+.gate form { display: grid; gap: 10px; }
+.msg-err { color: var(--miss); font-size: 14px; min-height: 1.4em; margin: 0; }
+
+/* Form dialog */
+dialog {
+  border: 1px solid var(--line); border-radius: 14px; padding: 0; background: var(--surface); color: var(--ink);
+  width: min(34rem, calc(100vw - 24px)); max-height: calc(100dvh - 24px);
+}
+dialog::backdrop { background: rgb(10 12 14 / .45); }
+@media (max-width: 560px) {
+  dialog { margin: auto 0 0; width: 100vw; max-width: 100vw; border-radius: 14px 14px 0 0; border-bottom: 0; max-height: 92dvh; }
+}
+.sheet { display: grid; gap: 14px; padding: 18px max(16px, env(safe-area-inset-right, 0px)) calc(18px + env(safe-area-inset-bottom, 0px)) max(16px, env(safe-area-inset-left, 0px)); }
+.sheet h2 { margin: 0; font-size: 18px; }
+.field { display: grid; gap: 6px; min-width: 0; }
+.field > label, .field > .label { font-size: 14px; font-weight: 500; }
+.field .opt { color: var(--faint); font-weight: 400; }
+.two { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+@media (max-width: 420px) { .two { grid-template-columns: 1fr; } }
+.choices { display: flex; flex-wrap: wrap; gap: 8px; }
+.choice { position: relative; }
+.choice input { position: absolute; opacity: 0; inset: 0; margin: 0; cursor: pointer; }
+.choice span {
+  display: inline-flex; align-items: center; gap: 8px; min-height: 42px; padding: 8px 14px;
+  border: 1px solid var(--line); border-radius: 999px; background: var(--bg);
+}
+.choice span::before { content: ""; width: 9px; height: 9px; border-radius: 50%; background: var(--rec); opacity: .25; }
+.choice.p1 span::before { background: var(--p1); }
+.choice.p2 span::before { background: var(--p2); }
+.choice.p3 span::before { background: var(--p3); }
+.choice.nobody span::before { background: none; border: 2px solid var(--miss); width: 7px; height: 7px; }
+.choice input:checked + span { border-color: var(--ink); background: var(--surface); font-weight: 600; box-shadow: inset 0 0 0 1px var(--ink); }
+.choice input:checked + span::before { opacity: 1; }
+.choice.nobody input:checked + span { border-color: var(--miss); box-shadow: inset 0 0 0 1px var(--miss); color: var(--miss); }
+.choice input:focus-visible + span { outline: 2px solid var(--focus); outline-offset: 2px; }
+.note-box { font-size: 14px; color: var(--miss); background: var(--miss-soft); border-radius: 8px; padding: 8px 10px; margin: 0; }
+.actions { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.actions .spacer { flex: 1; }
+
+.toast {
+  position: fixed; left: 50%; bottom: calc(20px + env(safe-area-inset-bottom, 0px)); transform: translateX(-50%);
+  background: var(--ink); color: var(--bg); padding: 10px 16px; border-radius: 8px; font-size: 14px; font-weight: 500;
+  max-width: calc(100vw - 32px);
+}
+@media (prefers-reduced-motion: no-preference) {
+  .toast { animation: rise .18s ease-out; }
+  @keyframes rise { from { transform: translate(-50%, 8px); opacity: 0; } }
+}
+</style>
+</head>
+<body>
+
+<header class="top">
+  <div class="wrap">
+    <div class="brand"><span class="rec-tag">REC</span><h1>Class Recording Log</h1></div>
+    <div class="sem" id="semLabel"></div>
+  </div>
+</header>
+
+<main class="wrap">
+  <section class="gate" id="gate" hidden>
+    <h2>Enter the passcode</h2>
+    <p>This log is only for the people who record our classes. You only need to enter it once on this device.</p>
+    <form id="gateForm" autocomplete="off">
+      <input type="password" id="gateCode" placeholder="Passcode" autocomplete="current-password" required>
+      <button class="btn primary" type="submit" id="gateBtn">Open the log</button>
+      <p class="msg-err" id="gateErr" role="alert"></p>
+    </form>
+  </section>
+
+  <div id="app" hidden>
+    <div class="who-banner" id="whoBanner" hidden>
+      <p><strong>Which of you uses this device?</strong> Your name will be filled in when you log a recording.</p>
+      <div class="row" id="whoChoices"></div>
+    </div>
+
+    <section class="block" aria-labelledby="todayH">
+      <div class="sec-head"><h2 id="todayH">Today</h2><span class="aside mono" id="todayDate"></span></div>
+      <ul class="rows" id="todayList"></ul>
+      <div class="add-row">
+        <button class="btn primary" id="addBtn" type="button"><span class="dot"></span>Log a recording</button>
+        <span class="hint">For any class, including one that wasn't on the schedule.</span>
+      </div>
+    </section>
+
+    <section class="block" aria-labelledby="logH">
+      <div class="sec-head">
+        <h2 id="logH">All recordings</h2>
+        <div class="view-switch" role="group" aria-label="How to show the recordings">
+          <button type="button" id="vList" aria-pressed="true">List</button>
+          <button type="button" id="vMonth" aria-pressed="false">Month</button>
+        </div>
+      </div>
+      <div class="filters">
+        <select id="fCourse" aria-label="Filter by course"></select>
+        <select id="fSem" aria-label="Filter by semester"></select>
+      </div>
+      <div class="who-tally" id="whoTally" role="group" aria-label="Show only one person's recordings"></div>
+      <div id="logList"></div>
+      <div id="monthView" hidden></div>
+    </section>
+
+    <div class="foot">
+      <span id="syncState"></span>
+      <button class="linkbtn" type="button" id="refreshBtn">Refresh</button>
+      <span id="meState"></span>
+      <button class="linkbtn" type="button" id="signOutBtn">Sign out of this device</button>
+    </div>
+  </div>
+</main>
+
+<dialog id="dlg" aria-labelledby="dlgTitle">
+  <form class="sheet" id="recForm" novalidate>
+    <h2 id="dlgTitle">Log a recording</h2>
+
+    <div class="field">
+      <label for="fldCourse">Course</label>
+      <select id="fldCourse" required></select>
+      <input type="text" id="fldCourseOther" placeholder="Course name" maxlength="80" hidden>
+    </div>
+
+    <div class="two">
+      <div class="field">
+        <label for="fldDate">Date</label>
+        <input type="date" id="fldDate" required>
+      </div>
+      <div class="field">
+        <label for="fldSem">Semester</label>
+        <input type="text" id="fldSem" list="semOptions" maxlength="60">
+        <datalist id="semOptions"></datalist>
+      </div>
+    </div>
+
+    <div class="field">
+      <label for="fldTitle">Title or topic <span class="opt">(you can add it later)</span></label>
+      <input type="text" id="fldTitle" maxlength="240" placeholder="e.g. Reformasi dan gereja di Nusantara">
+    </div>
+
+    <div class="field" role="radiogroup" aria-labelledby="whoLabel">
+      <span class="label" id="whoLabel">Who recorded it?</span>
+      <div class="choices" id="fldWho"></div>
+    </div>
+    <p class="note-box" id="missedNote" hidden>This marks the class as not recorded, so you both can see the gap and ask a classmate for their recording.</p>
+
+    <div class="field">
+      <label for="fldLink">Link to the recording <span class="opt">(optional)</span></label>
+      <input type="url" id="fldLink" maxlength="600" placeholder="https://drive.google.com/…" inputmode="url">
+    </div>
+
+    <div class="field">
+      <label for="fldNote">Note <span class="opt">(optional)</span></label>
+      <input type="text" id="fldNote" maxlength="600" placeholder="e.g. audio cut out for the first 10 minutes">
+    </div>
+
+    <p class="note-box" id="dupNote" hidden></p>
+    <p class="msg-err" id="formErr" role="alert"></p>
+
+    <div class="actions">
+      <button class="btn primary" type="submit" id="saveBtn">Save</button>
+      <button class="btn" type="button" id="cancelBtn">Cancel</button>
+      <span class="spacer"></span>
+      <button class="btn danger" type="button" id="deleteBtn" hidden>Delete</button>
+    </div>
+  </form>
+</dialog>
+
+<div class="toast" id="toast" role="status" hidden></div>
+
+<script>
+(function () {
+  'use strict';
+
+  var PROD_API = 'https://script.google.com/macros/s/AKfycbyW_ev0MDC10HNe68P_Hnn6fSJDSzWbUuXVs-DPjs13xUybO2hGRZc6FkmZJ-_8o9sQGg/exec';
+  var LOCAL = location.hostname === 'localhost' || location.hostname === '127.0.0.1';
+  var API = LOCAL ? '/mock' : PROD_API;
+  var DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+  var OTHER = '__other__';
+
+  /* ---------- small helpers ---------- */
+  var $ = function (id) { return document.getElementById(id); };
+  var store = {
+    get: function (k) { try { return localStorage.getItem('crl.' + k); } catch (e) { return null; } },
+    set: function (k, v) { try { if (v == null) localStorage.removeItem('crl.' + k); else localStorage.setItem('crl.' + k, v); } catch (e) {} }
+  };
+  function el(tag, props) {
+    var e = document.createElement(tag);
+    props = props || {};
+    Object.keys(props).forEach(function (k) {
+      var v = props[k];
+      if (v == null || v === false) return;
+      if (k === 'class') e.className = v;
+      else if (k.slice(0, 2) === 'on') e.addEventListener(k.slice(2), v);
+      else if (k === 'text') e.textContent = v;
+      else e.setAttribute(k, v === true ? '' : v);
+    });
+    var add = function (kid) {
+      if (kid == null || kid === false) return;
+      if (Array.isArray(kid)) { kid.forEach(add); return; }
+      e.append(kid instanceof Node ? kid : document.createTextNode(String(kid)));
+    };
+    for (var i = 2; i < arguments.length; i++) add(arguments[i]);
+    return e;
+  }
+  function pad(n) { return (n < 10 ? '0' : '') + n; }
+  function isoOf(d) { return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate()); }
+  function todayISO() { return isoOf(new Date()); }
+  function toMin(t) { var p = String(t || '').split(':'); return (+p[0] || 0) * 60 + (+p[1] || 0); }
+  function nowMin() { var d = new Date(); return d.getHours() * 60 + d.getMinutes(); }
+  function dateOf(iso) { var p = iso.split('-').map(Number); return new Date(p[0], p[1] - 1, p[2]); }
+  function fmtDay(iso) {
+    var d = dateOf(iso), opts = { weekday: 'short', day: 'numeric', month: 'short' };
+    if (d.getFullYear() !== new Date().getFullYear()) opts.year = 'numeric';
+    var s = d.toLocaleDateString('en-GB', opts);
+    var t = todayISO(), y = new Date(); y.setDate(y.getDate() - 1);
+    if (iso === t) return 'Today · ' + s;
+    if (iso === isoOf(y)) return 'Yesterday · ' + s;
+    return s;
+  }
+  function safeLink(u) { return /^https?:\/\//i.test(u || '') ? u : ''; }
+  var toastTimer;
+  function toast(msg) {
+    var t = $('toast'); t.textContent = msg; t.hidden = false;
+    clearTimeout(toastTimer); toastTimer = setTimeout(function () { t.hidden = true; }, 2600);
+  }
+
+  /* ---------- state ---------- */
+  var S = {
+    code: store.get('code'),
+    me: store.get('me'),
+    settings: null,
+    records: [],
+    fCourse: store.get('fCourse') || '',
+    fSem: store.get('fSem'),
+    fWho: store.get('fWho') || '',
+    view: store.get('view') === 'month' ? 'month' : 'list',
+    month: { y: new Date().getFullYear(), m: new Date().getMonth() },
+    selDay: isoOf(new Date()),
+    loadedAt: null,
+    loading: false,
+    error: ''
+  };
+
+  // A shared link can carry the passcode: …/#k=PASSCODE. Keep it, then clean the address bar.
+  var hm = location.hash.match(/^#k=(.+)$/);
+  if (hm) {
+    try { S.code = decodeURIComponent(hm[1]); } catch (e) { S.code = hm[1]; }
+    store.set('code', S.code);
+    history.replaceState(null, '', location.pathname + location.search);
+  }
+
+  if (S.code) {
+    try {
+      var cached = JSON.parse(store.get('cache') || 'null');
+      if (cached && cached.settings) { S.settings = cached.settings; S.records = cached.records || []; S.loadedAt = cached.at ? new Date(cached.at) : null; }
+    } catch (e) {}
+  }
+
+  /* ---------- talking to the Google Sheet ---------- */
+  function call(method, body) {
+    var ctrl = 'AbortController' in window ? new AbortController() : null;
+    var timer = setTimeout(function () { if (ctrl) ctrl.abort(); }, 25000);
+    var req = method === 'GET'
+      ? fetch(API + '?action=all&code=' + encodeURIComponent(S.code || ''), { signal: ctrl && ctrl.signal, cache: 'no-store' })
+      // text/plain keeps this a "simple" request, which Google's web apps accept from another site.
+      : fetch(API, { method: 'POST', body: JSON.stringify(Object.assign({ code: S.code }, body)), signal: ctrl && ctrl.signal });
+    return req.then(function (r) {
+      if (!r.ok) throw new Error('http');
+      return r.json();
+    }).catch(function (e) {
+      if (e && e.code) throw e;
+      var x = new Error('Could not reach the log. Check your internet connection and try again.'); x.code = 'network'; throw x;
+    }).then(function (data) {
+      clearTimeout(timer);
+      if (!data || !data.ok) {
+        var x = new Error((data && data.message) || 'The log answered with an error.'); x.code = (data && data.error) || 'server'; throw x;
+      }
+      return data;
+    }, function (e) { clearTimeout(timer); throw e; });
+  }
+
+  function saveCache() {
+    store.set('cache', JSON.stringify({ settings: S.settings, records: S.records, at: S.loadedAt && S.loadedAt.toISOString() }));
+  }
+
+  function load() {
+    if (!S.code) { showGate(''); return Promise.resolve(); }
+    S.loading = true; renderFoot();
+    return call('GET').then(function (data) {
+      S.settings = data.settings; S.records = data.records || []; S.loadedAt = new Date(); S.error = '';
+      saveCache(); showApp();
+    }).catch(function (e) {
+      if (e.code === 'passcode') { signOut(); showGate('That passcode doesn’t work anymore. Enter the current one.'); return; }
+      S.error = e.message;
+      if (S.settings) showApp(); else showGate(e.message);
+    }).then(function () { S.loading = false; renderFoot(); });
+  }
+
+  function signOut() {
+    S.code = null; S.settings = null; S.records = [];
+    store.set('code', null); store.set('cache', null);
+  }
+
+  /* ---------- views ---------- */
+  function showGate(msg) {
+    $('app').hidden = true; $('gate').hidden = false;
+    $('semLabel').textContent = '';
+    $('gateErr').textContent = msg || '';
+  }
+  function showApp() {
+    $('gate').hidden = true; $('app').hidden = false;
+    render();
+  }
+
+  function courses() { return (S.settings && S.settings.courses) || []; }
+  function people() { return (S.settings && S.settings.people) || []; }
+  function courseBy(code) { return courses().filter(function (c) { return c.code === code; })[0]; }
+  function onDay(c, d) {
+    var day = DAYS[d.getDay()].toLowerCase();
+    return String(c.days || '').toLowerCase().split(/[\s,\/]+/).some(function (x) { return x.slice(0, 3) === day; });
+  }
+  function scheduled(d) {
+    return courses().filter(function (c) { return onDay(c, d); }).sort(function (a, b) { return toMin(a.start) - toMin(b.start); });
+  }
+  function byDayCourse(iso, code) {
+    return S.records.filter(function (r) { return r.date === iso && r.course === code; });
+  }
+  function guessCourse() {
+    var list = scheduled(new Date()), m = nowMin(), pick = '';
+    list.forEach(function (c) { if (toMin(c.start) - 20 <= m) pick = c.code; });
+    return pick || (list[0] ? list[0].code : '');
+  }
+  function names(recs) {
+    var n = [];
+    recs.forEach(function (r) { if (r.status === 'recorded' && r.recorder && n.indexOf(r.recorder) < 0) n.push(r.recorder); });
+    return n.join(' & ');
+  }
+
+  function render() {
+    $('semLabel').textContent = (S.settings && S.settings.semester) || '';
+    renderWho();
+    renderToday();
+    renderFilters();
+    renderLog();
+    renderFoot();
+  }
+
+  function renderWho() {
+    var ppl = people(), box = $('whoChoices');
+    var known = S.me && ppl.indexOf(S.me) >= 0;
+    $('whoBanner').hidden = known || !ppl.length;
+    box.textContent = '';
+    ppl.forEach(function (p) {
+      box.append(el('button', { class: 'btn', type: 'button', onclick: function () { S.me = p; store.set('me', p); render(); toast('This device is now ' + p + '’s'); } }, 'I’m ' + p));
+    });
+  }
+
+  function renderToday() {
+    var now = new Date(), iso = todayISO(), list = $('todayList');
+    $('todayDate').textContent = now.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' });
+    list.textContent = '';
+    var rows = scheduled(now).map(function (c) { return { code: c.code, name: c.name, start: c.start }; });
+    // Classes logged today that weren't on the schedule (an extra or moved class).
+    S.records.forEach(function (r) {
+      if (r.date === iso && !rows.some(function (x) { return x.code === r.course; })) {
+        var c = courseBy(r.course);
+        rows.push({ code: r.course, name: c ? c.name : '', start: '' });
+      }
+    });
+    if (!rows.length) {
+      list.append(el('li', null, el('p', { class: 'empty' }, 'No classes on the schedule today.')));
+      return;
+    }
+    var m = nowMin();
+    rows.forEach(function (row) {
+      var recs = byDayCourse(iso, row.code);
+      var who = names(recs), cls, text, go, goQuiet = false;
+      if (who) { cls = 'recorded'; text = 'Recorded by ' + who; go = 'Edit'; goQuiet = true; }
+      else if (recs.length) { cls = 'missed'; text = 'Not recorded'; go = 'Edit'; goQuiet = true; }
+      else if (row.start && toMin(row.start) > m) { cls = 'later'; text = 'Starts at ' + row.start; go = 'Log'; goQuiet = true; }
+      else { cls = 'due'; text = 'Not logged yet'; go = 'Log'; }
+      var firstWho = (recs.filter(function (r) { return r.status === 'recorded'; })[0] || {}).recorder;
+      var mark = cls === 'recorded' ? 'recorded ' + pcls(firstWho) : cls === 'missed' ? 'missed' : 'open';
+      list.append(el('li', null, el('button', {
+        class: 'today-row', type: 'button',
+        'aria-label': row.code + ', ' + text + '. ' + go,
+        onclick: function () { recs.length ? openForm(recs[0]) : openForm(null, { course: row.code, date: iso }); }
+      },
+        el('span', { class: 'time' }, row.start || 'extra'),
+        el('span', { class: 'mark ' + mark, 'aria-hidden': 'true' }),
+        el('span', null,
+          el('span', { class: 'course-line' }, el('span', { class: 'code' }, row.code), row.name ? el('span', { class: 'cname' }, row.name) : null),
+          el('span', { class: 'state ' + cls, style: 'display:block' }, text)
+        ),
+        el('span', { class: 'go' + (goQuiet ? ' quiet' : '') }, go)
+      )));
+    });
+  }
+
+  function semesters() {
+    var set = [];
+    var cur = S.settings && S.settings.semester;
+    if (cur) set.push(cur);
+    S.records.forEach(function (r) { if (r.semester && set.indexOf(r.semester) < 0) set.push(r.semester); });
+    return set;
+  }
+
+  function renderFilters() {
+    var fc = $('fCourse'), fs = $('fSem');
+    fc.textContent = ''; fs.textContent = '';
+    fc.append(el('option', { value: '' }, 'All courses'));
+    var codes = courses().map(function (c) { return c.code; });
+    S.records.forEach(function (r) { if (r.course && codes.indexOf(r.course) < 0) codes.push(r.course); });
+    codes.forEach(function (code) {
+      var c = courseBy(code);
+      fc.append(el('option', { value: code }, c ? code + ' – ' + c.name : code));
+    });
+    if (codes.indexOf(S.fCourse) < 0) S.fCourse = '';
+    fc.value = S.fCourse;
+
+    var sems = semesters();
+    fs.append(el('option', { value: '*' }, 'All semesters'));
+    sems.forEach(function (s) { fs.append(el('option', { value: s }, s)); });
+    if (S.fSem == null || (S.fSem !== '*' && sems.indexOf(S.fSem) < 0)) S.fSem = (S.settings && S.settings.semester) || '*';
+    fs.value = S.fSem;
+  }
+
+  function renderLog() {
+    var month = S.view === 'month';
+    $('vList').setAttribute('aria-pressed', String(!month));
+    $('vMonth').setAttribute('aria-pressed', String(month));
+    $('fSem').hidden = month;
+    $('logList').hidden = month;
+    $('monthView').hidden = !month;
+    if (month) { $('whoTally').hidden = true; renderMonth(); return; }
+    var box = $('logList');
+    box.textContent = '';
+    var base = S.records.filter(function (r) {
+      return (!S.fCourse || r.course === S.fCourse) && (S.fSem === '*' || !S.fSem || r.semester === S.fSem);
+    });
+    renderWhoTally(base);
+    var recs = base.filter(function (r) {
+      if (!S.fWho) return true;
+      if (S.fWho === '__missed__') return r.status === 'missed';
+      return r.status === 'recorded' && r.recorder === S.fWho;
+    }).sort(function (a, b) {
+      return a.date < b.date ? 1 : a.date > b.date ? -1 : (a.created < b.created ? 1 : -1);
+    });
+
+    if (!recs.length) {
+      box.append(el('p', { class: 'empty', style: 'border-top:1px solid var(--line)' },
+        S.records.length ? 'Nothing matches these filters.' : 'Nothing logged yet. After class, tap the class under Today, or use Log a recording.'));
+      return;
+    }
+    var ul = null, lastDate = null;
+    recs.forEach(function (r) {
+      if (r.date !== lastDate) {
+        lastDate = r.date;
+        box.append(el('div', { class: 'day-head' }, el('span', null, fmtDay(r.date))));
+        ul = el('ul', { class: 'rows' });
+        box.append(ul);
+      }
+      var c = courseBy(r.course);
+      var link = safeLink(r.link);
+      var missed = r.status === 'missed';
+      ul.append(el('li', null, el('div', {
+        class: 'log-row', role: 'button', tabindex: '0',
+        'aria-label': 'Edit ' + r.course + ' on ' + fmtDay(r.date),
+        onclick: function (ev) { if (ev.target.closest('a')) return; openForm(r); },
+        onkeydown: function (ev) { if ((ev.key === 'Enter' || ev.key === ' ') && ev.target === ev.currentTarget) { ev.preventDefault(); openForm(r); } }
+      },
+        el('span', { class: 'mark ' + (missed ? 'missed' : 'recorded ' + pcls(r.recorder)), 'aria-hidden': 'true' }),
+        el('span', { style: 'min-width:0' },
+          el('span', { class: 'course-line' },
+            el('span', { class: 'code' }, r.course),
+            el('span', { class: 'log-title' + (r.title ? '' : ' untitled') }, r.title || (c ? c.name : 'No title yet'))
+          ),
+          el('span', { class: 'log-sub' },
+            missed ? el('span', { class: 'missed' }, 'Not recorded') : el('span', null, 'Recorded by ' + (r.recorder || '?')),
+            link ? el('a', { href: link, target: '_blank', rel: 'noopener' }, 'Open recording') : null
+          ),
+          r.note ? el('span', { class: 'log-note', style: 'display:block' }, r.note) : null
+        )
+      )));
+    });
+  }
+
+  // Who recorded how many (within the course/semester filters). Tap one to list only theirs.
+  function renderWhoTally(base) {
+    var box = $('whoTally');
+    box.textContent = '';
+    var counts = {}, order = people().slice(), missed = 0;
+    base.forEach(function (r) {
+      if (r.status === 'missed') { missed++; return; }
+      var n = r.recorder || '?';
+      counts[n] = (counts[n] || 0) + 1;
+      if (order.indexOf(n) < 0) order.push(n);
+    });
+    var opts = order.map(function (n) { return { key: n, label: n, n: counts[n] || 0, mark: 'recorded' }; });
+    opts.push({ key: '__missed__', label: 'Not recorded', n: missed, mark: 'missed' });
+    if (S.fWho && !opts.some(function (o) { return o.key === S.fWho; })) S.fWho = '';
+    box.hidden = !S.records.length;
+    opts.forEach(function (o) {
+      var on = S.fWho === o.key;
+      box.append(el('button', {
+        class: 'tally-btn' + (o.n ? '' : ' zero'), type: 'button', 'aria-pressed': String(on),
+        title: on ? 'Show everyone again' : 'Show only ' + (o.key === '__missed__' ? 'classes that weren’t recorded' : o.label + '’s recordings'),
+        onclick: function () { S.fWho = on ? '' : o.key; store.set('fWho', S.fWho || null); renderLog(); }
+      }, el('span', { class: 'mark ' + o.mark + (o.mark === 'recorded' ? ' ' + pcls(o.key) : ''), 'aria-hidden': 'true' }), el('span', null, o.label), el('span', { class: 'count mono' }, String(o.n))));
+    });
+  }
+
+  /* ---------- people: colour + initial ---------- */
+  function personOrder() {
+    var o = people().slice();
+    S.records.forEach(function (r) { if (r.status === 'recorded' && r.recorder && o.indexOf(r.recorder) < 0) o.push(r.recorder); });
+    return o;
+  }
+  function pcls(name) { var i = personOrder().indexOf(name); return 'p' + (i < 0 ? 3 : i % 4); }
+  function initialsMap() {
+    var o = personOrder(), m = {};
+    o.forEach(function (n) {
+      var a = n.trim().charAt(0).toUpperCase() || '?';
+      var clash = o.some(function (x) { return x !== n && x.trim().charAt(0).toUpperCase() === a; });
+      m[n] = clash ? n.trim().slice(0, 2) : a;
+    });
+    return m;
+  }
+
+  /* ---------- month view ---------- */
+  var MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+  var MON3 = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
+  // The first logged day. Before it, unlogged classes aren't counted as gaps (the log didn't exist yet).
+  function logStart() {
+    var s = '';
+    S.records.forEach(function (r) { if (r.date && (!s || r.date < s)) s = r.date; });
+    return s;
+  }
+
+  // Everything that happened (or should happen) on one day: entries, plus scheduled classes nobody logged.
+  function dayItems(d, start) {
+    var iso = isoOf(d), today = todayISO(), m = nowMin();
+    var items = S.records.filter(function (r) { return r.date === iso && (!S.fCourse || r.course === S.fCourse); })
+      .map(function (r) { return { kind: r.status === 'missed' ? 'missed' : 'recorded', rec: r, code: r.course }; });
+    scheduled(d).forEach(function (c) {
+      if (S.fCourse && c.code !== S.fCourse) return;
+      if (items.some(function (it) { return it.code === c.code; })) return;
+      var future = iso > today || (iso === today && toMin(c.start) > m);
+      if (future) items.push({ kind: 'upcoming', code: c.code });
+      else if (start && iso >= start) items.push({ kind: 'notlogged', code: c.code });
+    });
+    items.forEach(function (it) { var c = courseBy(it.code); it.start = c ? c.start : ''; });
+    return items.sort(function (a, b) { return (a.start ? toMin(a.start) : 9999) - (b.start ? toMin(b.start) : 9999); });
+  }
+
+  function newTally() { return { people: {}, missed: 0, notlogged: 0, upcoming: 0 }; }
+  function addTally(items, t) {
+    items.forEach(function (it) {
+      if (it.kind === 'recorded') { var n = it.rec.recorder || '?'; t.people[n] = (t.people[n] || 0) + 1; }
+      else t[it.kind]++;
+    });
+  }
+  // ini given = the month line, which doubles as the key for the calendar (same marks, with initials).
+  function tallyNodes(t, ini) {
+    var done = Object.keys(t.people).length || t.missed || t.notlogged;
+    var sz = ini ? 'pin ' : 'pin sm ';
+    var out = [];
+    if (done) personOrder().forEach(function (n) {
+      out.push(el('span', { class: 'it' }, el('span', { class: sz + pcls(n), 'aria-hidden': 'true' }, ini ? ini[n] : ''), n + ' ' + (t.people[n] || 0)));
+    });
+    if (t.missed) out.push(el('span', { class: 'it' }, el('span', { class: sz + 'missed', 'aria-hidden': 'true' }), t.missed + ' not recorded'));
+    if (t.notlogged) out.push(el('span', { class: 'it' }, el('span', { class: sz + 'notlogged', 'aria-hidden': 'true' }), t.notlogged + ' not logged'));
+    if (t.upcoming) out.push(el('span', { class: 'it' }, el('span', { class: sz + 'upcoming', 'aria-hidden': 'true' }), t.upcoming + ' coming up'));
+    if (!out.length) out.push(el('span', null, 'No classes'));
+    return out;
+  }
+  function weekLabel(a, b) {
+    return a.getMonth() === b.getMonth()
+      ? a.getDate() + '–' + b.getDate() + ' ' + MON3[b.getMonth()]
+      : a.getDate() + ' ' + MON3[a.getMonth()] + '–' + b.getDate() + ' ' + MON3[b.getMonth()];
+  }
+  function describe(it) {
+    return it.code + ' ' + (it.kind === 'recorded' ? 'recorded by ' + it.rec.recorder : it.kind === 'missed' ? 'not recorded' : it.kind === 'notlogged' ? 'not logged' : 'coming up');
+  }
+  function shiftMonth(n) {
+    var d = new Date(S.month.y, S.month.m + n, 1), now = new Date();
+    S.month = { y: d.getFullYear(), m: d.getMonth() };
+    S.selDay = d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth() ? todayISO() : null;
+    renderMonth();
+  }
+
+  function renderMonth() {
+    var box = $('monthView');
+    box.textContent = '';
+    var y = S.month.y, mo = S.month.m, now = new Date();
+    var isCur = now.getFullYear() === y && now.getMonth() === mo;
+    var start = logStart(), today = todayISO(), ini = initialsMap();
+
+    box.append(el('div', { class: 'month-nav' },
+      el('button', { class: 'icon-btn', type: 'button', 'aria-label': 'Previous month', onclick: function () { shiftMonth(-1); } }, '‹'),
+      el('h3', null, MONTHS[mo] + ' ' + y),
+      isCur ? null : el('button', { class: 'btn', type: 'button', onclick: function () { S.month = { y: now.getFullYear(), m: now.getMonth() }; S.selDay = today; renderMonth(); } }, 'This month'),
+      el('button', { class: 'icon-btn', type: 'button', 'aria-label': 'Next month', onclick: function () { shiftMonth(1); } }, '›')
+    ));
+
+    var first = new Date(y, mo, 1), offset = (first.getDay() + 6) % 7;
+    var weeks = Math.ceil((offset + new Date(y, mo + 1, 0).getDate()) / 7);
+    var monthT = newTally();
+    var cal = el('div', { class: 'cal' });
+    var dow = el('div', { class: 'cal-dow', 'aria-hidden': 'true' });
+    ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].forEach(function (n) { dow.append(el('span', null, n)); });
+    cal.append(dow);
+
+    for (var w = 0; w < weeks; w++) {
+      var row = el('div', { class: 'cal-week' }), wt = newTally(), a = null, b = null;
+      for (var i = 0; i < 7; i++) {
+        var d = new Date(y, mo, 1 - offset + w * 7 + i);
+        if (!a) a = d;
+        b = d;
+        var items = dayItems(d, start);
+        addTally(items, wt);
+        if (d.getMonth() === mo) addTally(items, monthT);
+        row.append(dayCell(d, d.getMonth() === mo, items, ini, today));
+      }
+      cal.append(row);
+      cal.append(el('div', { class: 'week-sum' }, el('span', { class: 'wk' }, weekLabel(a, b)), tallyNodes(wt)));
+    }
+
+    box.append(el('p', { class: 'month-sum', 'aria-label': MONTHS[mo] + ' in total' }, tallyNodes(monthT, ini)), cal);
+    if (start) box.append(el('p', { class: 'hint-line' }, 'Classes count as “not logged” from ' + fmtDay(start).replace(/^(Today|Yesterday) · /, '') + ', the first entry in the log.'));
+    renderDayDetail(box, start);
+  }
+
+  function dayCell(d, inMonth, items, ini, today) {
+    var iso = isoOf(d);
+    return el('button', {
+      type: 'button',
+      class: 'cal-day' + (inMonth ? '' : ' out') + (iso === today ? ' today' : '') + (iso === S.selDay ? ' sel' : ''),
+      'aria-pressed': String(iso === S.selDay),
+      'aria-label': fmtDay(iso) + ': ' + (items.length ? items.map(describe).join(', ') : 'no classes'),
+      onclick: function () {
+        S.selDay = iso;
+        if (!inMonth) S.month = { y: d.getFullYear(), m: d.getMonth() };
+        renderMonth();
+        var dd = $('dayDetail');
+        if (dd) dd.scrollIntoView({ block: 'nearest' });
+      }
+    },
+      el('span', { class: 'dnum' }, d.getDate()),
+      el('span', { class: 'evs' }, items.map(function (it) {
+        var rec = it.kind === 'recorded';
+        return el('span', { class: 'ev ' + it.kind },
+          el('span', { class: 'pin ' + (rec ? pcls(it.rec.recorder) : it.kind), 'aria-hidden': 'true' }, rec ? (ini[it.rec.recorder] || '?') : ''),
+          el('span', { class: 'ev-code' }, it.code));
+      }))
+    );
+  }
+
+  function renderDayDetail(box, start) {
+    if (!S.selDay) { box.append(el('p', { class: 'hint-line' }, 'Tap a day to see its classes and log one.')); return; }
+    var items = dayItems(dateOf(S.selDay), start);
+    var ul = el('ul', { class: 'rows' });
+    if (!items.length) ul.append(el('li', null, el('p', { class: 'empty' }, 'No classes on the schedule this day.')));
+    items.forEach(function (it) {
+      var c = courseBy(it.code), text, cls, mark, go = 'Log', quiet = false;
+      if (it.kind === 'recorded') { text = 'Recorded by ' + it.rec.recorder; cls = 'recorded'; mark = 'recorded ' + pcls(it.rec.recorder); go = 'Edit'; quiet = true; }
+      else if (it.kind === 'missed') { text = 'Not recorded'; cls = 'missed'; mark = 'missed'; go = 'Edit'; quiet = true; }
+      else if (it.kind === 'notlogged') { text = 'Not logged'; cls = 'due'; mark = 'open'; }
+      else { text = it.start ? 'Starts at ' + it.start : 'Coming up'; cls = 'later'; mark = 'open'; quiet = true; }
+      var title = it.rec && it.rec.title;
+      ul.append(el('li', null, el('button', {
+        class: 'today-row', type: 'button',
+        onclick: function () { if (it.rec) openForm(it.rec); else openForm(null, { course: it.code, date: S.selDay }); }
+      },
+        el('span', { class: 'time' }, it.start || 'extra'),
+        el('span', { class: 'mark ' + mark, 'aria-hidden': 'true' }),
+        el('span', null,
+          el('span', { class: 'course-line' }, el('span', { class: 'code' }, it.code), el('span', { class: 'cname' }, title || (c ? c.name : ''))),
+          el('span', { class: 'state ' + cls, style: 'display:block' }, text)),
+        el('span', { class: 'go' + (quiet ? ' quiet' : '') }, go)
+      )));
+    });
+    var open = items.filter(function (it) { return it.kind === 'notlogged'; })[0];
+    box.append(el('div', { class: 'day-detail', id: 'dayDetail' },
+      el('h3', null, fmtDay(S.selDay)),
+      ul,
+      el('div', { class: 'add-row' }, el('button', { class: 'btn', type: 'button', onclick: function () { openForm(null, { date: S.selDay, course: open ? open.code : '' }); } }, 'Log a class on this day'))
+    ));
+  }
+
+  function renderFoot() {
+    var s = $('syncState');
+    s.className = '';
+    if (S.loading) s.textContent = 'Updating…';
+    else if (S.error) { s.textContent = S.error; s.className = 'err'; }
+    else if (S.loadedAt) s.textContent = 'Updated ' + S.loadedAt.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
+    else s.textContent = '';
+    $('meState').textContent = S.me && people().indexOf(S.me) >= 0 ? 'This device: ' + S.me : '';
+  }
+
+  /* ---------- the form ---------- */
+  var editing = null;
+
+  function fillCourseSelect(value) {
+    var sel = $('fldCourse');
+    sel.textContent = '';
+    sel.append(el('option', { value: '', disabled: true }, 'Choose a course'));
+    var today = scheduled(new Date()).map(function (c) { return c.code; });
+    var list = courses().slice().sort(function (a, b) {
+      var ia = today.indexOf(a.code), ib = today.indexOf(b.code);
+      return (ia < 0 ? 99 : ia) - (ib < 0 ? 99 : ib);
+    });
+    list.forEach(function (c) { sel.append(el('option', { value: c.code }, c.code + ' – ' + c.name)); });
+    sel.append(el('option', { value: OTHER }, 'Another class…'));
+    var known = !value || courseBy(value);
+    sel.value = known ? (value || '') : OTHER;
+    $('fldCourseOther').hidden = known;
+    $('fldCourseOther').value = known ? '' : value;
+  }
+
+  function fillWho(value) {
+    var box = $('fldWho');
+    box.textContent = '';
+    people().concat(['']).forEach(function (p, i) {
+      var id = 'who' + i;
+      var input = el('input', { type: 'radio', name: 'who', id: id, value: p || '__nobody__' });
+      if ((p || '__nobody__') === value) input.checked = true;
+      box.append(el('label', { class: 'choice' + (p ? ' ' + pcls(p) : ' nobody'), for: id }, input, el('span', null, p || 'Nobody, it wasn’t recorded')));
+    });
+  }
+
+  function currentWho() {
+    var c = document.querySelector('input[name=who]:checked');
+    return c ? c.value : '';
+  }
+
+  function updateNotes() {
+    $('missedNote').hidden = currentWho() !== '__nobody__';
+    var course = currentCourse(), date = $('fldDate').value;
+    var others = S.records.filter(function (r) { return r.date === date && r.course === course && (!editing || r.id !== editing.id); });
+    var dup = $('dupNote');
+    if (course && date && others.length) {
+      var who = names(others);
+      dup.textContent = 'Already logged for this day: ' + (who ? 'recorded by ' + who : 'not recorded') + '. Saving adds a second entry.';
+      dup.hidden = false;
+    } else dup.hidden = true;
+  }
+
+  function currentCourse() {
+    var v = $('fldCourse').value;
+    return v === OTHER ? $('fldCourseOther').value.trim() : v;
+  }
+
+  function openForm(rec, preset) {
+    editing = rec || null;
+    preset = preset || {};
+    $('dlgTitle').textContent = rec ? 'Edit recording' : 'Log a recording';
+    fillCourseSelect(rec ? rec.course : ('course' in preset ? preset.course : guessCourse()));
+    $('fldDate').value = rec ? rec.date : (preset.date || todayISO());
+    $('fldSem').value = rec ? rec.semester : ((S.settings && S.settings.semester) || '');
+    var dl = $('semOptions'); dl.textContent = '';
+    semesters().forEach(function (s) { dl.append(el('option', { value: s })); });
+    $('fldTitle').value = rec ? rec.title : '';
+    var who = rec ? (rec.status === 'missed' ? '__nobody__' : rec.recorder) : (S.me && people().indexOf(S.me) >= 0 ? S.me : '');
+    fillWho(who);
+    if (rec && rec.status === 'recorded' && rec.recorder && people().indexOf(rec.recorder) < 0) {
+      // Someone no longer in the list: keep them selectable.
+      var box = $('fldWho');
+      box.prepend(el('label', { class: 'choice', for: 'whoX' }, el('input', { type: 'radio', name: 'who', id: 'whoX', value: rec.recorder, checked: true }), el('span', null, rec.recorder)));
+    }
+    $('fldLink').value = rec ? rec.link : '';
+    $('fldNote').value = rec ? rec.note : '';
+    $('formErr').textContent = '';
+    $('deleteBtn').hidden = !rec;
+    disarmDelete();
+    setBusy(false);
+    updateNotes();
+    if (typeof $('dlg').showModal === 'function') $('dlg').showModal(); else $('dlg').setAttribute('open', '');
+    setTimeout(function () { (rec ? $('fldTitle') : ($('fldCourse').value ? $('fldTitle') : $('fldCourse'))).focus({ preventScroll: true }); }, 30);
+  }
+
+  function closeForm() {
+    var d = $('dlg');
+    if (typeof d.close === 'function') d.close(); else d.removeAttribute('open');
+  }
+
+  function setBusy(on, label) {
+    $('saveBtn').disabled = on; $('deleteBtn').disabled = on; $('cancelBtn').disabled = on;
+    $('saveBtn').textContent = on && label ? label : 'Save';
+  }
+
+  var armTimer;
+  function disarmDelete() {
+    clearTimeout(armTimer);
+    var b = $('deleteBtn'); b.classList.remove('armed'); b.textContent = 'Delete';
+  }
+
+  $('fldCourse').addEventListener('change', function () {
+    var other = $('fldCourse').value === OTHER;
+    $('fldCourseOther').hidden = !other;
+    if (other) $('fldCourseOther').focus();
+    updateNotes();
+  });
+  $('fldCourseOther').addEventListener('input', updateNotes);
+  $('fldDate').addEventListener('change', updateNotes);
+  $('fldWho').addEventListener('change', updateNotes);
+  $('cancelBtn').addEventListener('click', closeForm);
+
+  $('recForm').addEventListener('submit', function (ev) {
+    ev.preventDefault();
+    var err = $('formErr');
+    var course = currentCourse(), date = $('fldDate').value, who = currentWho(), link = $('fldLink').value.trim();
+    if (!course) { err.textContent = 'Pick the course first.'; return; }
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) { err.textContent = 'Pick the date of the class.'; return; }
+    if (!who) { err.textContent = 'Choose who recorded it, or “Nobody” if it wasn’t recorded.'; return; }
+    if (link && !safeLink(link)) { err.textContent = 'The link should start with https://. Copy it straight from Drive or Zoom.'; return; }
+    err.textContent = '';
+    var record = {
+      id: editing ? editing.id : '',
+      date: date, course: course,
+      title: $('fldTitle').value.trim(),
+      semester: $('fldSem').value.trim(),
+      status: who === '__nobody__' ? 'missed' : 'recorded',
+      recorder: who === '__nobody__' ? '' : who,
+      link: link, note: $('fldNote').value.trim()
+    };
+    setBusy(true, 'Saving…');
+    call('POST', { action: 'save', record: record }).then(function (data) {
+      var saved = data.record;
+      var i = S.records.findIndex(function (r) { return r.id === saved.id; });
+      if (i >= 0) S.records[i] = saved; else S.records.push(saved);
+      saveCache(); closeForm(); render();
+      toast(editing ? 'Changes saved' : 'Saved to the log');
+    }).catch(function (e) {
+      setBusy(false);
+      err.textContent = e.code === 'passcode' ? 'The passcode was changed. Sign out at the bottom of the page and enter the new one.' : e.message;
+    });
+  });
+
+  $('deleteBtn').addEventListener('click', function () {
+    var b = $('deleteBtn');
+    if (!editing) return;
+    if (!b.classList.contains('armed')) {
+      b.classList.add('armed'); b.textContent = 'Tap again to delete';
+      armTimer = setTimeout(disarmDelete, 4000);
+      return;
+    }
+    disarmDelete();
+    var id = editing.id;
+    setBusy(true, 'Deleting…');
+    call('POST', { action: 'delete', id: id }).catch(function (e) {
+      if (e.code === 'not_found') return null;
+      throw e;
+    }).then(function () {
+      S.records = S.records.filter(function (r) { return r.id !== id; });
+      saveCache(); closeForm(); render(); toast('Deleted');
+    }).catch(function (e) { setBusy(false); $('formErr').textContent = e.message; });
+  });
+
+  /* ---------- page wiring ---------- */
+  $('gateForm').addEventListener('submit', function (ev) {
+    ev.preventDefault();
+    var code = $('gateCode').value.trim();
+    if (!code) return;
+    $('gateBtn').disabled = true; $('gateErr').textContent = '';
+    S.code = code;
+    call('GET').then(function (data) {
+      store.set('code', code);
+      S.settings = data.settings; S.records = data.records || []; S.loadedAt = new Date(); S.error = '';
+      saveCache(); $('gateCode').value = ''; showApp();
+    }).catch(function (e) {
+      S.code = null;
+      $('gateErr').textContent = e.code === 'passcode' ? 'That passcode isn’t right. Check it and try again.' : e.message;
+    }).then(function () { $('gateBtn').disabled = false; });
+  });
+
+  $('addBtn').addEventListener('click', function () { openForm(null); });
+  $('refreshBtn').addEventListener('click', function () { load(); });
+  $('signOutBtn').addEventListener('click', function () {
+    signOut(); store.set('me', null); S.me = null; showGate('');
+  });
+  $('fCourse').addEventListener('change', function () { S.fCourse = $('fCourse').value; store.set('fCourse', S.fCourse); renderLog(); });
+  $('fSem').addEventListener('change', function () { S.fSem = $('fSem').value; store.set('fSem', S.fSem); renderLog(); });
+  $('vList').addEventListener('click', function () { S.view = 'list'; store.set('view', 'list'); renderLog(); });
+  $('vMonth').addEventListener('click', function () { S.view = 'month'; store.set('view', 'month'); renderLog(); });
+
+  // Pick up the other person's entries when coming back to the tab.
+  var lastLoad = 0;
+  document.addEventListener('visibilitychange', function () {
+    if (document.visibilityState === 'visible' && S.code && !$('dlg').open && Date.now() - lastLoad > 30000) { lastLoad = Date.now(); load(); }
+  });
+  // Keep "Starts at" / "Not logged yet" honest as the evening goes on.
+  setInterval(function () { if (!$('app').hidden && !$('dlg').open) renderToday(); }, 60000);
+
+  if (S.code && S.settings) showApp();
+  lastLoad = Date.now();
+  load();
+})();
+</script>
+</body>
+</html>
